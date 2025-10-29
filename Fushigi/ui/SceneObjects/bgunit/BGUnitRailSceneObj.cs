@@ -1,4 +1,5 @@
-﻿using Fushigi.course;
+﻿using DiscordRPC;
+using Fushigi.course;
 using Fushigi.ui.undo;
 using Fushigi.ui.widgets;
 using Fushigi.util;
@@ -149,7 +150,6 @@ namespace Fushigi.ui.SceneObjects.bgunit
                          _ => 0
                      });
             }
-
             if (rail.Points.Count == 0)
                 return (pos, 0);
 
@@ -289,9 +289,17 @@ namespace Fushigi.ui.SceneObjects.bgunit
 
                     if (!ChildPoints.TryGetValue(rail.Points[i], out RailPoint? childPoint))
                         continue;
-
-                    diff.X = MathF.Round(diff.X * 2, MidpointRounding.AwayFromZero) / 2;
-                    diff.Y = MathF.Round(diff.Y * 2, MidpointRounding.AwayFromZero) / 2;
+                    
+                     if (UserSettings.GetEnableHalfTile())
+                    {
+                        diff.X = MathF.Round(diff.X * 2, MidpointRounding.AwayFromZero) / 2;
+                        diff.Y = MathF.Round(diff.Y * 2, MidpointRounding.AwayFromZero) / 2;
+                    }
+                    else
+                    {
+                        diff.X = MathF.Round(diff.X, MidpointRounding.AwayFromZero);
+                        diff.Y = MathF.Round(diff.Y, MidpointRounding.AwayFromZero);
+                    }
                     posVec.Z = rail.Points[i].Position.Z;
 
                     var newPos = childPoint.PreviousPosition + diff;
