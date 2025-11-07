@@ -13,6 +13,7 @@ namespace Fushigi.ui
 {
     class CourseAreaEditContext(CourseArea area) : EditContextBase
     {
+        public static bool saveStatus = true;
         public void AddActor(CourseActor actor)
         {
             LogAdding<CourseActor>($"{actor.mPackName}[{actor.mHash}]");
@@ -102,6 +103,7 @@ namespace Fushigi.ui
 
         private void DeleteLinksWithSource(ulong hash)
         {
+
             foreach (var index in area.mLinkHolder.GetIndicesOfLinksWithSrc_ForDelete(hash))
                 DeleteLinkByIndex(index);
         }
@@ -281,6 +283,7 @@ namespace Fushigi.ui
 
         public void DeleteBeltRail(CourseUnit unit, BGUnitRail rail)
         {
+ 
             LogDeleting<BGUnitRail>();
             CommitAction(unit.mBeltRails.RevertableRemove(rail,
                     $"{IconUtil.ICON_TRASH} Delete Belt"));
@@ -288,6 +291,7 @@ namespace Fushigi.ui
 
         public void AddGroup(CourseGroup group)
         {
+
             LogAdding<CourseGroup>();
             CommitAction(area.mGroupsHolder.mGroups
                 .RevertableAdd(group, $"{IconUtil.ICON_PLUS_CIRCLE} Add Simultaneous Group"));

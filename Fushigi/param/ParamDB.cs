@@ -134,7 +134,6 @@ namespace Fushigi.param
 
         public static void Load(IProgress<(string operationName, float? progress)> progress)
         {
-            isReloading = true;
             /* if we have already been initialized, we skip this process */
             if (sIsInit)
             {
@@ -284,7 +283,6 @@ namespace Fushigi.param
             File.WriteAllLines("railParams.json", railParamOutput.ToArray());
             /* we are all now initialized and ready to go! */
             sIsInit = true;
-            isReloading = false;
         }
 
         public static void Reload(IProgress<(string operationName, float? progress)> progress)
@@ -434,6 +432,5 @@ namespace Fushigi.param
         static Dictionary<string, Component>? sRails = new Dictionary<string, Component>();
         static Dictionary<string, ParamList>? sRailParamList = new Dictionary<string, ParamList>();
         public static bool sIsInit = false;
-        public static bool isReloading = false;
     }
 }

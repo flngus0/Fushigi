@@ -131,6 +131,8 @@ namespace Fushigi.ui.widgets
                 if (ImGui.Checkbox("Enable Half Tile Editing", ref enableHalfTile))
                     UserSettings.SetEnableHalfTile(enableHalfTile);
 
+                Tooltip.Show("Enable half tile editng for BGUnits, also affects the placement of rails as well.");
+
                 if (ImGui.Checkbox("Hide Activity", ref privateDRPC))
                     UserSettings.SetPrivateDRPC(privateDRPC);
 

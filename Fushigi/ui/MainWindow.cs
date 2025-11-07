@@ -163,9 +163,14 @@ namespace Fushigi.ui
             }).ConfigureAwait(false); //fire and forget
         }
 
+        public static bool isRegenerate(bool Regenerate) {
+            return Regenerate;
+        }
+        
         //TODO put this somewhere else
         public static Task LoadParamDBWithProgressBar(IPopupModalHost modalHost)
         {
+            isRegenerate(true);
             return ProgressBarDialog.ShowDialogForAsyncAction(modalHost,
                     "Loading ParamDB",
                     async (p) =>
@@ -177,6 +182,7 @@ namespace Fushigi.ui
                         Task.Run(() => ParamDB.Load(p));
                         await task;
                     });
+                    isRegenerate(false);
         }
 
         async Task StartupRoutine()
@@ -292,6 +298,7 @@ namespace Fushigi.ui
                                     Logger.Logger.LogMessage("MainWindow", $"Reload course {mCurrentCourseName}!");
                                     await LoadCourseWithProgressBar(mCurrentCourseName);
                                     UserSettings.AppendRecentCourse(mCurrentCourseName);
+                                    CourseAreaEditContext.saveStatus = true;
                                 }
                             }).ConfigureAwait(false); //fire and forget
                         }

@@ -30,11 +30,11 @@ namespace Fushigi.ui
         public IRevertable Revert()
         {
             //Revert transform instance
+
             var redo = new TransformUndo(Transform, NewPos, OldPos);
 
             Transform.Position = OldPos;
             Transform.OnUpdate();
-
             //Create revert stack
             return redo;
         }

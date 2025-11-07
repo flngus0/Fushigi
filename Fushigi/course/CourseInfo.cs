@@ -39,6 +39,7 @@ namespace Fushigi.course
         public List<TipInfo> TipsInfo { get; set; } //
         public string UnlockBadgeIdOnCourseClear { get; set; } //
 
+
         public CourseInfo(string name)
         {
             var courseFilePath = FileUtil.FindContentPath(Path.Combine("Stage", "CourseInfo", $"{name}.game__stage__CourseInfo.bgyml"));

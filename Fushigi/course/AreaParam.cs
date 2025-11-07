@@ -10,6 +10,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Fushigi.ui.widgets;
 
 
 namespace Fushigi.course
@@ -54,6 +55,14 @@ namespace Fushigi.course
         public AreaParam(Byml.Byml byml)
         {
             this.Load((BymlHashTable)byml.Root);
+     
+        }
+
+        public static uint GetDecompressedSize(Byml.Byml byml)
+        {
+            using var mem = new MemoryStream();
+            byml.Save(mem);
+            return (uint)mem.Length;
         }
 
         public void Save(RSTB resource_table, string folder, string areaName)
@@ -81,6 +90,8 @@ namespace Fushigi.course
         public void Save(RSTB resource_table, string areaName)
         {
             Save(resource_table, Path.Combine(UserSettings.GetModRomFSPath(), "Stage", "AreaParam"), areaName);
+            CourseScene.oldAreaParamSize = CourseScene.areaParamSize;
+            CourseScene.oldCourseInfoSize = CourseScene.courseInfoSize;
         }
 
         public bool ContainsParam(string param)

@@ -52,7 +52,7 @@ namespace Fushigi.course
                 mAreas.Add(new CourseArea(mCourseName));
             }
 
-            if (root.ContainsKey("Links"))
+            if (root.ContainsKey("Links") && !IsOneAreaCourse)
             {
                 if (root["Links"] is BymlArrayNode linksArr)
                 {
@@ -62,6 +62,7 @@ namespace Fushigi.course
             }
 
             mGlobalLinks = new(new BymlArrayNode());
+       
         }
 
         public List<CourseArea> GetAreas() => mAreas;

@@ -147,6 +147,7 @@ namespace Fushigi.ui.widgets
             // Window
             if (ImGui.Begin("Area Settings", ImGuiWindowFlags.NoDocking | ImGuiWindowFlags.NoCollapse))
             {
+               
                 // Close Button
                 if (ImGui.Button("Close"))
                 {

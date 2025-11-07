@@ -1,37 +1,40 @@
+using Fasterflect;
+using NumVec = System.Numerics.Vector3;
+using Fushigi.Byml;
 using Fushigi.course;
 using Fushigi.gl;
 using Fushigi.gl.Bfres;
+using Fushigi.Logger;
 using Fushigi.param;
+using Fushigi.rstb;
+using Fushigi.ui.helpers;
 using Fushigi.ui.modal;
 using Fushigi.ui.SceneObjects;
 using Fushigi.ui.SceneObjects.bgunit;
-using Fushigi.ui.widgets;
 using Fushigi.ui.undo;
+using Fushigi.ui.widgets;
 using Fushigi.util;
 using ImGuiNET;
 using Silk.NET.OpenGL;
+using System.Collections;
 using System.Collections.Immutable;
+using System.ComponentModel;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using Fushigi.rstb;
-using Fushigi.ui.helpers;
-using Fasterflect;
 using System.Text.RegularExpressions;
-using System.Collections;
-using Fushigi.Logger;
-using System.ComponentModel;
+using System.Reflection.Metadata.Ecma335;
 
 namespace Fushigi.ui.widgets
 {
     class CourseScene
     {
         readonly Dictionary<CourseArea, LevelViewport> viewports = [];
-        readonly Dictionary<CourseArea, object?> lastSavedAction = [];
+        readonly Dictionary<CourseArea, object?> lastSavedAction = new();
         readonly Dictionary<CourseArea, CourseAreaScene> areaScenes = [];
         Dictionary<CourseArea, LevelViewport>? lastCreatedViewports;
         public LevelViewport activeViewport;
         readonly UndoWindow undoWindow;
-        Vector3 camSave;
+        NumVec camSave;
 
         (object? courseObj, FullPropertyCapture capture)
            propertyCapture = (null,
@@ -48,7 +51,10 @@ namespace Fushigi.ui.widgets
 
         bool showAreaSettings = false;
         bool showCourseSettings = false;
-
+        public static uint oldAreaParamSize;
+        public static uint areaParamSize;
+        public static uint oldCourseInfoSize;
+        public static uint courseInfoSize;
         static Dictionary<string, List<ulong>> mCopiedLinks = [];
 
         // this is a very bad fix bc im waiting
@@ -220,6 +226,22 @@ namespace Fushigi.ui.widgets
                             areaScene.EditContext, "Delete objects");
                 };
             }
+    
+            oldAreaParamSize = 0;
+            foreach (var area in course.GetAreas())
+            {
+                BymlHashTable old_root = area.mAreaParams.Serialize();
+                var old_byml = new Byml.Byml(old_root);
+                var old_size = AreaParam.GetDecompressedSize(old_byml);
+                oldAreaParamSize += old_size;
+            }
+
+
+                BymlHashTable old_croot = course.mCourseInfo.Serialize();
+                var old_cbyml = new Byml.Byml(old_croot);
+                var old_csize = AreaParam.GetDecompressedSize(old_cbyml);
+                oldCourseInfoSize = old_csize;
+
 
             cs.activeViewport = cs.viewports[cs.selectedArea];
 
@@ -227,6 +249,7 @@ namespace Fushigi.ui.widgets
 
             return cs;
         }
+
 
         private CourseScene(Course course, GLTaskScheduler glScheduler, IPopupModalHost popupModalHost)
         {
@@ -294,13 +317,34 @@ namespace Fushigi.ui.widgets
 
         public bool HasUnsavedChanges()
         {
+            BymlHashTable c_croot = course.mCourseInfo.Serialize();
+            var c_cbyml = new Byml.Byml(c_croot);
+            var c_csize = AreaParam.GetDecompressedSize(c_cbyml);
+            courseInfoSize = c_csize;
+
+            areaParamSize = 0;
             foreach (var area in course.GetAreas())
             {
-                if (lastSavedAction[area] != areaScenes[area].EditContext.GetLastAction())
-                    return true;
+                BymlHashTable current_root = area.mAreaParams.Serialize();
+                var current_byml = new Byml.Byml(current_root);
+                var current_size = AreaParam.GetDecompressedSize(current_byml);
+                areaParamSize += current_size;
             }
+                foreach (var area in course.GetAreas())
+            {
+    
+                Console.WriteLine(areaParamSize + " vs " + oldAreaParamSize);
+                Console.WriteLine(courseInfoSize + " vs " + oldCourseInfoSize);
+                if (areaParamSize != oldAreaParamSize || courseInfoSize != oldCourseInfoSize)
+                {
+                    CourseAreaEditContext.saveStatus = false;
+                }
 
+                if (!CourseAreaEditContext.saveStatus)
+                    return true;
+        }
             return false;
+            
         }
 
         double backupTime = 0;
@@ -662,13 +706,16 @@ namespace Fushigi.ui.widgets
                     var areaParamSave = course.GetAreas().Select(
                         a => Path.Combine(UserSettings.GetModRomFSPath(), "Stage", "AreaParam", $"{a.GetName()}.game__stage__AreaParam.bgyml")
                         ).ToList();
-
+                    
+            
                     foreach (var areaParam in areaParamSave)
                     {
                         pathsToWriteTo.Add(areaParam);
+                        //bool Joe = beforeParam.ToString() != areaParam.ToString();
                     }
 
                     // Save CourseInfo
+                   
                     pathsToWriteTo.Add(
                         Path.Combine(UserSettings.GetModRomFSPath(), "Stage", "CourseInfo", $"{course.GetName()}.game__stage__CourseInfo.bgyml")
                         );
@@ -689,6 +736,8 @@ namespace Fushigi.ui.widgets
                 //Save each course area to current romfs folder
                 foreach (var area in course.GetAreas())
                 {
+
+                    CourseAreaEditContext.saveStatus = true;
                     Console.WriteLine($"{(backup ? "Backing up" : "Saving")} area {area.GetName()}...");
                     Console.WriteLine($"{(backup ? "Backing up" : "Saving")} area parameters for {area.GetName()}...");
 
@@ -717,7 +766,7 @@ namespace Fushigi.ui.widgets
 
                 //Save the CourseInfo file
                 Console.WriteLine($"{(backup ? "Backing up" : "Saving")} course info for {course.GetName()}...");
-
+              
                 if (backup)
                     course.mCourseInfo.Save(resource_table, Path.Combine(backupFolder, "Stage", "CourseInfo"), course.GetName());
                 else
@@ -808,7 +857,7 @@ namespace Fushigi.ui.widgets
             var area = selectedArea;
             var ctx = areaScenes[selectedArea].EditContext;
 
-            Vector3? pos;
+            NumVec? pos;
             KeyboardModifier modifier;
             mSelectedLayer = mSelectedLayer ?? "PlayArea1";
 
@@ -847,12 +896,12 @@ namespace Fushigi.ui.widgets
 
         }
 
-        public List<CourseActor> CreateGoalSetup(Vector3 location)
+        public List<CourseActor> CreateGoalSetup(NumVec location)
         {
             var areaHash = selectedArea.mRootHash;
             var areaLinks = selectedArea.mLinkHolder;
 
-            Vector3 placement;
+            NumVec placement;
 
             placement.X = MathF.Round(location.X * 2, MidpointRounding.AwayFromZero) / 2;
             placement.Y = MathF.Round(location.Y * 2, MidpointRounding.AwayFromZero) / 2;
@@ -868,14 +917,14 @@ namespace Fushigi.ui.widgets
             CourseActor goalFort = new CourseActor("ObjectGoalPoleFort", areaHash, mSelectedLayer);
 
             // Proper Offsets and scales
-            Vector3 airWallOffset = new Vector3(1.0f, 0.0f, 0.0f);
-            Vector3 airWallScale = new Vector3(1.0f, 50.0f, 1.0f);
-            Vector3 noRevivalAreaOffset = new Vector3(10.75f, 0.0f, 0.0f);
-            Vector3 noRevivalAreaScale = new Vector3(21.5f, 50.0f, 1.0f);
-            Vector3 goalPrinceOffset = new Vector3(8.0f, 0.0f, 0.0f);
-            Vector3 goalSeedOffset = new Vector3(10.5f, 0.0f, 0.0f);
-            Vector3 goalPoplinOffset = new Vector3(14.0f, 0.0f, 0.0f);
-            Vector3 goalFortOffset = new Vector3(14.5f, 0.0f, 0.0f);
+            NumVec airWallOffset = new NumVec(1.0f, 0.0f, 0.0f);
+            NumVec airWallScale = new NumVec(1.0f, 50.0f, 1.0f);
+            NumVec noRevivalAreaOffset = new NumVec(10.75f, 0.0f, 0.0f);
+            NumVec noRevivalAreaScale = new NumVec(21.5f, 50.0f, 1.0f);
+            NumVec goalPrinceOffset = new NumVec(8.0f, 0.0f, 0.0f);
+            NumVec goalSeedOffset = new NumVec(10.5f, 0.0f, 0.0f);
+            NumVec goalPoplinOffset = new NumVec(14.0f, 0.0f, 0.0f);
+            NumVec goalFortOffset = new NumVec(14.5f, 0.0f, 0.0f);
 
             // Apply
             goalPole.mActorParameters["ExportedScaleY"] = 10.0f;
@@ -920,8 +969,6 @@ namespace Fushigi.ui.widgets
             ImGui.BeginTabBar("SelectActorAndLayerWindow");
             if (ImGui.BeginTabItem("Add Actor"))
             {
-                if (!ParamDB.isReloading)
-                {
                     if (mSelectedActor == null)
                     {
                         ImGui.InputText("Search", ref mAddActorSearchQuery, 256);
@@ -975,7 +1022,6 @@ namespace Fushigi.ui.widgets
 
                             ImGui.EndListBox();
                         }
-                    }
                     else
                         AddSelectedActorWithLayer();
                 }
@@ -1050,7 +1096,7 @@ namespace Fushigi.ui.widgets
             var area = selectedArea;
             var ctx = areaScenes[selectedArea].EditContext;
 
-            Vector3? pos;
+            NumVec? pos;
             KeyboardModifier modifier;
             using var tokenSource = new CancellationTokenSource();
             do
@@ -1139,6 +1185,8 @@ namespace Fushigi.ui.widgets
 
         private void GlobalLinksPanel()
         {
+            if (!course.IsOneAreaCourse)
+            {
             ImGui.Begin("Global Links");
 
             if (ImGui.Button("Add Link"))
@@ -1151,6 +1199,14 @@ namespace Fushigi.ui.widgets
             CourseGlobalLinksView(course.GetGlobalLinks());
 
             ImGui.End();
+            } else {
+                ImGui.Begin("Global Links");
+
+                ImGui.TextWrapped("This is a one-area course, so there are no global links to display.");
+
+                ImGui.End();
+            }
+
         }
       
         private void LocalLinksPanel()
@@ -2043,7 +2099,7 @@ namespace Fushigi.ui.widgets
                             BGUnitRail? firstBeltRail = null;
                             BGUnitRail? currentBeltRail = null;
 
-                            var lastPoint = new Vector3(float.NaN);
+                            var lastPoint = new NumVec(float.NaN);
 
                             for (int i = 0; i < rail.Points.Count; i++)
                             {
@@ -2285,7 +2341,7 @@ namespace Fushigi.ui.widgets
                             ImGui.TableNextColumn();
 
                             ImGui.DragFloat3("##Translation", ref mSelectedRailPoint.mTranslate, 0.25f);
-
+         
                         ImGui.TableNextColumn();
                             ImGui.AlignTextToFramePadding();
                             ImGui.Text("Curve Control");
@@ -3403,143 +3459,155 @@ namespace Fushigi.ui.widgets
         {
             if (ImGui.CollapsingHeader("Dynamic", ImGuiTreeNodeFlags.DefaultOpen))
             {
-                List<string> actorParams = ParamDB.GetActorComponents(actor.mPackName);
-
-                foreach (string param in actorParams)
+                List<string> actorParams = null;
+                try
                 {
-                    Dictionary<string, ParamDB.ComponentParam> dict = ParamDB.GetComponentParams(param);
+                    actorParams = ParamDB.GetActorComponents(actor.mPackName);
+                }
+                catch
+                {
+                    return;
+                }
 
-
-                    if (dict.Keys.Count == 0)
+                if (actorParams != null)
+                {
+                    foreach (string param in actorParams)
                     {
-                        continue;
-                    }
-                    ImGui.Indent();
+                        Dictionary<string, ParamDB.ComponentParam> dict = ParamDB.GetComponentParams(param);
 
-                    ImGui.Text(param);
-                    ImGui.Separator();
+                        if (dict.Keys.Count == 0 && dict != null)
+                        {
+                            continue;
+                        }
+                        ImGui.Indent();
 
-                    ImGui.Indent();
+                        ImGui.Text(param);
+                        ImGui.Separator();
 
-                    if (ImGui.BeginTable("DynamProps", 2, ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.Resizable))
-                    {
-                        ImGui.TableNextRow();
+                        ImGui.Indent();
+
+                        if (ImGui.BeginTable("DynamProps", 2, ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.Resizable))
+                        {
+                            ImGui.TableNextRow();
                             ImGui.TableSetColumnIndex(0);
 
-                        if (param == "ChildActorSelectName" && actor.mActorChildRef != null)
-                        {
-                            try
+                            if (param == "ChildActorSelectName" && actor.mActorChildRef != null)
                             {
-                                string id = $"##{param}";
-                                List<string> list = ChildActorParam.GetActorParams(actor.mActorChildRef);
-                                int selected = list.IndexOf(actor.mActorParameters[param].ToString());
-                                ImGui.Text("ChildParameters");
-                                ImGui.TableNextColumn();
-                                ImGui.PushItemWidth(ImGui.GetColumnWidth() - ImGui.GetStyle().ScrollbarSize);
-
-                                if (ImGui.Combo("##Parameters", ref selected, list.ToArray(), list.Count))
+                                try
                                 {
-                                    actor.mActorParameters[param] = list[selected];
+                                    string id = $"##{param}";
+                                    List<string> list = ChildActorParam.GetActorParams(actor.mActorChildRef);
+                                    int selected = list.IndexOf(actor.mActorParameters[param].ToString());
+                                    ImGui.Text("ChildParameters");
+                                    ImGui.TableNextColumn();
+                                    ImGui.PushItemWidth(ImGui.GetColumnWidth() - ImGui.GetStyle().ScrollbarSize);
+
+                                    if (ImGui.Combo("##Parameters", ref selected, list.ToArray(), list.Count))
+                                    {
+                                        actor.mActorParameters[param] = list[selected];
+                                    }
+                                    ImGui.PopItemWidth();
                                 }
-                                ImGui.PopItemWidth();
-                            } catch
-                            {
-
-                                string id = $"##{param}";
-
-                                ImGui.AlignTextToFramePadding();
-                                ImGui.Text(param);
-                                ImGui.TableNextColumn();
-
-                                ImGui.PushItemWidth(ImGui.GetColumnWidth() - ImGui.GetStyle().ScrollbarSize);
-
-                                string val_string = actor.mActorParameters[param].ToString();
-                                if (ImGui.InputText(id, ref val_string, 1024))
+                                catch
                                 {
-                                    actor.mActorParameters[param] = val_string;
+
+                                    string id = $"##{param}";
+
+                                    ImGui.AlignTextToFramePadding();
+                                    ImGui.Text(param);
+                                    ImGui.TableNextColumn();
+
+                                    ImGui.PushItemWidth(ImGui.GetColumnWidth() - ImGui.GetStyle().ScrollbarSize);
+
+                                    string val_string = actor.mActorParameters[param].ToString();
+                                    if (ImGui.InputText(id, ref val_string, 1024))
+                                    {
+                                        actor.mActorParameters[param] = val_string;
+                                    }
                                 }
                             }
-                        }
-                        else
-                        {
-                            foreach (KeyValuePair<string, ParamDB.ComponentParam> pair in ParamDB.GetComponentParams(param))
+                            else
                             {
-                                string id = $"##{pair.Key}";
-
-                                ImGui.AlignTextToFramePadding();
-                                ImGui.Text(pair.Key);
-                                ImGui.TableNextColumn();
-
-                                ImGui.PushItemWidth(ImGui.GetColumnWidth() - ImGui.GetStyle().ScrollbarSize);
-
-                                if (actor.mActorParameters.ContainsKey(pair.Key))
+                                foreach (KeyValuePair<string, ParamDB.ComponentParam> pair in ParamDB.GetComponentParams(param))
                                 {
-                                    var actorParam = actor.mActorParameters[pair.Key];
+                                    string id = $"##{pair.Key}";
 
-                                    if(pair.Value.IsSignedInt(out int minValue, out int maxValue))
-                                    {
-                                        int val_int = (int)actorParam;
-                                        if (ImGui.InputInt(id, ref val_int))
-                                        {
-                                            actor.mActorParameters[pair.Key] = Math.Clamp(val_int, minValue, maxValue);
-                                        }
-                                    }
-                                    else if (pair.Value.IsUnsignedInt(out minValue, out maxValue))
-                                    {
-                                        uint val_uint = (uint)actorParam;
-                                        int val_int = unchecked((int)val_uint);
-                                        if (ImGui.InputInt(id, ref val_int))
-                                        {
-                                            actor.mActorParameters[pair.Key] = unchecked((uint)Math.Clamp(val_int, minValue, maxValue));
-                                        }
-                                    }
-                                    else if (pair.Value.IsBool())
-                                    {
-                                        bool val_bool = (bool)actorParam;
-                                        if (ImGui.Checkbox(id, ref val_bool))
-                                        {
-                                            actor.mActorParameters[pair.Key] = val_bool;
-                                        }
+                                    ImGui.AlignTextToFramePadding();
+                                    ImGui.Text(pair.Key);
+                                    ImGui.TableNextColumn();
 
-                                    }
-                                    else if (pair.Value.IsFloat())
+                                    ImGui.PushItemWidth(ImGui.GetColumnWidth() - ImGui.GetStyle().ScrollbarSize);
+
+                                    if (actor.mActorParameters.ContainsKey(pair.Key))
                                     {
-                                        float val_float = (float)actorParam;
-                                        if (ImGui.InputFloat(id, ref val_float))
+                                        var actorParam = actor.mActorParameters[pair.Key];
+
+                                        if (pair.Value.IsSignedInt(out int minValue, out int maxValue))
                                         {
-                                            actor.mActorParameters[pair.Key] = val_float;
+                                            int val_int = (int)actorParam;
+                                            if (ImGui.InputInt(id, ref val_int))
+                                            {
+                                                actor.mActorParameters[pair.Key] = Math.Clamp(val_int, minValue, maxValue);
+                                            }
+                                        }
+                                        else if (pair.Value.IsUnsignedInt(out minValue, out maxValue))
+                                        {
+                                            uint val_uint = (uint)actorParam;
+                                            int val_int = unchecked((int)val_uint);
+                                            if (ImGui.InputInt(id, ref val_int))
+                                            {
+                                                actor.mActorParameters[pair.Key] = unchecked((uint)Math.Clamp(val_int, minValue, maxValue));
+                                            }
+                                        }
+                                        else if (pair.Value.IsBool())
+                                        {
+                                            bool val_bool = (bool)actorParam;
+                                            if (ImGui.Checkbox(id, ref val_bool))
+                                            {
+                                                actor.mActorParameters[pair.Key] = val_bool;
+                                            }
+
+                                        }
+                                        else if (pair.Value.IsFloat())
+                                        {
+                                            float val_float = (float)actorParam;
+                                            if (ImGui.InputFloat(id, ref val_float))
+                                            {
+                                                actor.mActorParameters[pair.Key] = val_float;
+                                            }
+                                        }
+                                        else if (pair.Value.IsString())
+                                        {
+                                            string val_string = (string)actorParam;
+                                            if (ImGui.InputText(id, ref val_string, 1024))
+                                            {
+                                                actor.mActorParameters[pair.Key] = val_string;
+                                            }
+                                        }
+                                        else if (pair.Value.IsDouble())
+                                        {
+                                            double val = (double)actorParam;
+                                            if (ImGui.InputDouble(id, ref val))
+                                            {
+                                                actor.mActorParameters[pair.Key] = val;
+                                            }
                                         }
                                     }
-                                    else if (pair.Value.IsString())
-                                    {
-                                        string val_string = (string)actorParam;
-                                        if (ImGui.InputText(id, ref val_string, 1024))
-                                        {
-                                            actor.mActorParameters[pair.Key] = val_string;
-                                        }
-                                    }
-                                    else if (pair.Value.IsDouble())
-                                    {
-                                        double val = (double)actorParam;
-                                        if (ImGui.InputDouble(id, ref val))
-                                        {
-                                            actor.mActorParameters[pair.Key] = val;
-                                        }
-                                    }
+
+                                    ImGui.PopItemWidth();
+                                    ImGui.TableNextColumn();
                                 }
-
-                                ImGui.PopItemWidth();
-                                ImGui.TableNextColumn();
                             }
-                        }
 
-                        ImGui.EndTable();
+                            ImGui.EndTable();
+                        }
+                        ImGui.Unindent();
+                        ImGui.Unindent();
                     }
-                    ImGui.Unindent();
-                    ImGui.Unindent();
                 }
             }
         }
+
 
         public Course GetCourse()
         {
@@ -3624,7 +3692,7 @@ namespace Fushigi.ui.widgets
             {
                 ctx.DeleteActor(actor);
             }
-
+            
             batchAction.Commit($"{IconUtil.ICON_TRASH} {actionName}");
         }
 

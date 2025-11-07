@@ -16,6 +16,7 @@ namespace Fushigi.course
 {
     public class CourseArea
     {
+
         public CourseArea(string areaName) {
             mAreaName = areaName;
             Load();
@@ -105,6 +106,7 @@ namespace Fushigi.course
             {
                 mUnitHolder = new();
             }
+          
         }
 
         public void Save(RSTB resource_table)
