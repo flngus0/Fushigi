@@ -960,74 +960,72 @@ namespace Fushigi.ui.widgets
             return new List<CourseActor>() { goalPole, airWall, noRevivalArea, goalPrince, goalSeed, goalPoplin, goalFort };
         }
 
-        private void SelectActorAndLayerPanel()
-        {
-            ImGui.Begin("Actors and Layers");
+         private void SelectActorAndLayerPanel()
+ {
+     ImGui.Begin("Actors and Layers");
 
-            ImGui.BeginTabBar("SelectActorAndLayerWindow");
-            if (ImGui.BeginTabItem("Add Actor"))
-            {
-                if (!ParamDB.isReloading)
-                {
-                    if (mSelectedActor == null)
-                    {
-                        ImGui.InputText("Search", ref mAddActorSearchQuery, 256);
+     ImGui.BeginTabBar("SelectActorAndLayerWindow");
+     
+     if (ImGui.BeginTabItem("Add Actor"))
+     {
+             if (mSelectedActor == null)
+             {
+                 ImGui.InputText("Search", ref mAddActorSearchQuery, 256);
 
-                        var filteredActors = ParamDB.GetActors().ToImmutableList();
+                 var filteredActors = ParamDB.GetActors().ToImmutableList();
 
-                        if (mAddActorSearchQuery != "")
-                        {
-                            filteredActors = FuzzySharp.Process.ExtractAll(mAddActorSearchQuery, ParamDB.GetActors(), cutoff: 65)
-                                .OrderByDescending(result => result.Score)
-                                .Select(result => result.Value)
-                                .ToImmutableList();
-                        }
+                 if (mAddActorSearchQuery != "")
+                 {
+                     filteredActors = FuzzySharp.Process.ExtractAll(mAddActorSearchQuery, ParamDB.GetActors(), cutoff: 65)
+                         .OrderByDescending(result => result.Score)
+                         .Select(result => result.Value)
+                         .ToImmutableList();
+                 }
 
-                        if (ImGui.BeginListBox("Select the actor you want to add.", ImGui.GetContentRegionAvail()))
-                        {
-                            foreach (string actor in filteredActors)
-                            {
-                                ImGui.Selectable(actor);
+                 if (ImGui.BeginListBox("Select the actor you want to add.", ImGui.GetContentRegionAvail()))
+                 {
+                     foreach (string actor in filteredActors)
+                     {
+                         ImGui.Selectable(actor);
 
-                                if (ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(0))
-                                    mSelectedActor = actor;
-                            }
+                         if (ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(0))
+                             mSelectedActor = actor;
+                     }
 
-                            ImGui.EndListBox();
-                        }
-                    }
-                    else if (mSelectedLayer == null)
-                    {
-                        ImGui.InputText("Search", ref mAddLayerSearchQuery, 256);
+                     ImGui.EndListBox();
+                 }
+             }
+             else if (mSelectedLayer == null)
+             {
+                 ImGui.InputText("Search", ref mAddLayerSearchQuery, 256);
 
-                        var fileteredLayers = mLayersVisibility.Keys.ToArray().ToImmutableList();
+                 var fileteredLayers = mLayersVisibility.Keys.ToArray().ToImmutableList();
 
-                        if (mAddLayerSearchQuery != "")
-                        {
-                            fileteredLayers = FuzzySharp.Process.ExtractAll(mAddLayerSearchQuery, [.. mLayersVisibility.Keys], cutoff: 65)
-                                .OrderByDescending(result => result.Score)
-                                .Select(result => result.Value)
-                                .ToImmutableList();
-                        }
+                 if (mAddLayerSearchQuery != "")
+                 {
+                     fileteredLayers = FuzzySharp.Process.ExtractAll(mAddLayerSearchQuery, [.. mLayersVisibility.Keys], cutoff: 65)
+                         .OrderByDescending(result => result.Score)
+                         .Select(result => result.Value)
+                         .ToImmutableList();
+                 }
 
-                        if (ImGui.BeginListBox("Select the layer you want to add the actor to.", ImGui.GetContentRegionAvail()))
-                        {
-                            foreach (string layer in fileteredLayers)
-                            {
-                                ImGui.Selectable(layer);
+                 if (ImGui.BeginListBox("Select the layer you want to add the actor to.", ImGui.GetContentRegionAvail()))
+                 {
+                     foreach (string layer in fileteredLayers)
+                     {
+                         ImGui.Selectable(layer);
 
-                                if (ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(0))
-                                    mSelectedLayer = layer;
-                            }
+                         if (ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(0))
+                             mSelectedLayer = layer;
+                     }
 
-                            ImGui.EndListBox();
-                        }
-                    }
-                    else
-                        AddSelectedActorWithLayer();
-                }
-                ImGui.EndTabItem();
-            }
+                     ImGui.EndListBox();
+                 }
+             }
+             else
+                 AddSelectedActorWithLayer();
+         ImGui.EndTabItem();
+     }
 
             if (ImGui.BeginTabItem("Add Layer"))
             {
